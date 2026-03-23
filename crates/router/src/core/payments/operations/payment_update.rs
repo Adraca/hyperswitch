@@ -33,7 +33,12 @@ use crate::{
         self,
         api::{self, ConnectorCallType, PaymentIdTypeExt},
         domain,
-        storage::{self, enums as storage_enums, payment_attempt::PaymentAttemptExt},
+        storage::{
+            self,
+            enums as storage_enums,
+            payment_attempt::PaymentAttemptExt,
+            sdk_session_redis::SdkSessionRedisManager,
+        },
         transformers::ForeignTryFrom,
     },
     utils::OptionExt,
@@ -1077,6 +1082,38 @@ impl<F: Clone + Sync> UpdateTracker<F, PaymentData<F>, api::PaymentsRequest> for
             )
             .await
             .to_not_found_response(errors::ApiErrorResponse::PaymentNotFound)?;
+
+        // Refresh SDK session ID for the payment (only if not a confirm operation)
+        if !payment_data.confirm.unwrap_or(false) {
+            let merchant_id = processor.get_account().get_id().clone();
+            let payment_id = payment_data.payment_intent.payment_id.clone();
+
+            // Invalidate old session
+            SdkSessionRedisManager::invalidate_session(
+                state,
+                &merchant_id,
+                &payment_id,
+            )
+            .await
+            .ok(); // Non-blocking, ignore errors
+
+            // Create new session with updated expiry
+            let new_session_id = SdkSessionRedisManager::create_session(
+                state,
+                &merchant_id,
+                &payment_id,
+                payment_data.payment_intent.session_expiry.unwrap_or_else(|| {
+                    common_utils::date_time::now() + time::Duration::minutes(30)
+                }),
+            )
+            .await
+            .change_context(errors::ApiErrorResponse::InternalServerError)
+            .attach_printable("Failed to refresh SDK session during payment update")?;
+
+            // Update payment_data with new session_id
+            payment_data.session_id = Some(new_session_id);
+        }
+
         let amount = payment_data.amount;
         req_state
             .event_context

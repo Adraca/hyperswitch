@@ -50,6 +50,7 @@ use crate::{
         storage::{
             self,
             enums::{self, IntentStatus},
+            sdk_session_redis::SdkSessionRedisManager,
         },
         transformers::ForeignFrom,
     },
@@ -625,6 +626,17 @@ impl<F: Send + Clone + Sync> GetTracker<F, PaymentData<F>, api::PaymentsRequest>
 
         let unified_address = address.unify_with_payment_method_data_billing(add);
 
+        // Generate SDK session ID for the payment
+        let session_id = SdkSessionRedisManager::create_session(
+            state,
+            platform.get_processor().get_account().get_id(),
+            &payment_id,
+            session_expiry,
+        )
+        .await
+        .change_context(errors::ApiErrorResponse::InternalServerError)
+        .attach_printable("Failed to create SDK session")?;
+
         let payment_data = PaymentData {
             flow: PhantomData,
             payment_intent,
@@ -664,7 +676,7 @@ impl<F: Send + Clone + Sync> GetTracker<F, PaymentData<F>, api::PaymentsRequest>
             recurring_details,
             poll_config: None,
             tax_data: None,
-            session_id: None,
+            session_id: Some(session_id),
             service_details: None,
             card_testing_guard_data: None,
             vault_operation: None,

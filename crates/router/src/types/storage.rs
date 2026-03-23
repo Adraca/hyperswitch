@@ -40,6 +40,7 @@ pub mod revenue_recovery;
 #[cfg(feature = "v2")]
 pub mod revenue_recovery_redis_operation;
 pub mod reverse_lookup;
+pub mod sdk_session_redis;
 pub mod role;
 pub mod routing_algorithm;
 pub mod unified_translations;

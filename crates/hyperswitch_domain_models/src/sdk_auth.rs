@@ -81,6 +81,10 @@ pub struct SdkAuthorization {
 
     #[cfg(feature = "v2")]
     pub payment_method_session_id: Option<id_type::GlobalPaymentMethodSessionId>,
+
+    /// Session ID for SDK authorization validation (V1 only, optional for backward compatibility)
+    #[cfg(feature = "v1")]
+    pub session_id: Option<String>,
 }
 
 impl SdkAuthorization {
@@ -104,6 +108,10 @@ impl SdkAuthorization {
             self.payment_method_session_id
                 .as_ref()
                 .map(|id| format!("payment_method_session_id={}", id.get_string_repr())),
+            #[cfg(feature = "v1")]
+            self.session_id
+                .as_ref()
+                .map(|id| format!("session_id={}", id)),
         ]
         .into_iter()
         .flatten()
@@ -202,6 +210,8 @@ impl SdkAuthorization {
                     )
                 },
             ),
+            #[cfg(feature = "v1")]
+            session_id: parts.get("session_id").map(|s| s.to_string()),
         })
     }
 }

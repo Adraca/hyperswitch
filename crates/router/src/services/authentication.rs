@@ -47,11 +47,19 @@ use crate::{
     core::{
         api_keys,
         errors::{self, utils::StorageErrorExt, RouterResult},
+        metrics::{
+            SDK_AUTH_INVALID_SESSION_TOTAL, SDK_AUTH_LEGACY_FLOW_TOTAL,
+            SDK_AUTH_SESSION_VALIDATED_TOTAL,
+        },
     },
     headers,
     routes::app::SessionStateInfo,
     services::api,
-    types::{domain, storage},
+    types::{
+        domain,
+        storage,
+        storage::sdk_session_redis::SdkSessionRedisManager,
+    },
     utils::OptionExt,
 };
 
@@ -3394,6 +3402,84 @@ where
 
         // Extract client_secret from decoded SDK authorization
         let client_secret = sdk_auth.client_secret.clone();
+
+        // Validate session_id if present (V1 only, backward compatibility)
+        #[cfg(feature = "v1")]
+        if let Some(ref session_id) = sdk_auth.session_id {
+            // Extract payment_id from client_secret (format: "{payment_id}_secret_{random}")
+            let payment_id_str = client_secret
+                .split("_secret_")
+                .next()
+                .ok_or(errors::ApiErrorResponse::Unauthorized)
+                .attach_printable("Invalid client_secret format")?;
+
+            let payment_id = id_type::PaymentId::try_from(std::borrow::Cow::from(
+                payment_id_str.to_string(),
+            ))
+            .change_context(errors::ApiErrorResponse::Unauthorized)
+            .attach_printable("Invalid payment_id in client_secret")?;
+
+            // Get merchant_id from platform (will be resolved below)
+            // We need to find the processor merchant first
+            let (processor_merchant, _) = state
+                .store()
+                .find_merchant_account_by_publishable_key(&sdk_auth.publishable_key)
+                .await
+                .to_not_found_response(errors::ApiErrorResponse::Unauthorized)
+                .attach_printable("Invalid publishable key in SDK authorization")?;
+
+            let merchant_id = processor_merchant.get_id().clone();
+
+            // Validate session
+            let is_valid = SdkSessionRedisManager::validate_session(
+                state,
+                &merchant_id,
+                &payment_id,
+                session_id,
+            )
+            .await
+            .unwrap_or(false);
+
+            if !is_valid {
+                // Increment invalid session metric
+                SDK_AUTH_INVALID_SESSION_TOTAL.add(
+                    1,
+                    &[router_env::opentelemetry::KeyValue::new(
+                        "merchant_id",
+                        merchant_id.get_string_repr().to_string(),
+                    )],
+                );
+
+                return Err(errors::ApiErrorResponse::Unauthorized.into());
+            }
+
+            // Increment successful validation metric
+            SDK_AUTH_SESSION_VALIDATED_TOTAL.add(
+                1,
+                &[router_env::opentelemetry::KeyValue::new(
+                    "merchant_id",
+                    merchant_id.get_string_repr().to_string(),
+                )],
+            );
+        } else {
+            // Legacy flow - no session_id provided
+            // Get merchant_id for metrics
+            if let Ok((merchant, _)) = state
+                .store()
+                .find_merchant_account_by_publishable_key(&sdk_auth.publishable_key)
+                .await
+            {
+                SDK_AUTH_LEGACY_FLOW_TOTAL.add(
+                    1,
+                    &[router_env::opentelemetry::KeyValue::new(
+                        "merchant_id",
+                        merchant.get_id().get_string_repr().to_string(),
+                    )],
+                );
+            }
+
+            logger::info!("SDK auth without session_id - legacy flow");
+        }
 
         let (initiator_merchant, initiator_merchant_key_store) = match sdk_auth
             .platform_publishable_key
