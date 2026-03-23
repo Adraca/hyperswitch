@@ -55,11 +55,7 @@ use crate::{
     headers,
     routes::app::SessionStateInfo,
     services::api,
-    types::{
-        domain,
-        storage,
-        storage::sdk_session_redis::SdkSessionRedisManager,
-    },
+    types::{domain, storage, storage::sdk_session_redis::SdkSessionRedisManager},
     utils::OptionExt,
 };
 
@@ -3413,11 +3409,10 @@ where
                 .ok_or(errors::ApiErrorResponse::Unauthorized)
                 .attach_printable("Invalid client_secret format")?;
 
-            let payment_id = id_type::PaymentId::try_from(std::borrow::Cow::from(
-                payment_id_str.to_string(),
-            ))
-            .change_context(errors::ApiErrorResponse::Unauthorized)
-            .attach_printable("Invalid payment_id in client_secret")?;
+            let payment_id =
+                id_type::PaymentId::try_from(std::borrow::Cow::from(payment_id_str.to_string()))
+                    .change_context(errors::ApiErrorResponse::Unauthorized)
+                    .attach_printable("Invalid payment_id in client_secret")?;
 
             // Get merchant_id from platform (will be resolved below)
             // We need to find the processor merchant first

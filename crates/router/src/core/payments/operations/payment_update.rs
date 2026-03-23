@@ -34,9 +34,7 @@ use crate::{
         api::{self, ConnectorCallType, PaymentIdTypeExt},
         domain,
         storage::{
-            self,
-            enums as storage_enums,
-            payment_attempt::PaymentAttemptExt,
+            self, enums as storage_enums, payment_attempt::PaymentAttemptExt,
             sdk_session_redis::SdkSessionRedisManager,
         },
         transformers::ForeignTryFrom,
@@ -1089,22 +1087,21 @@ impl<F: Clone + Sync> UpdateTracker<F, PaymentData<F>, api::PaymentsRequest> for
             let payment_id = payment_data.payment_intent.payment_id.clone();
 
             // Invalidate old session
-            SdkSessionRedisManager::invalidate_session(
-                state,
-                &merchant_id,
-                &payment_id,
-            )
-            .await
-            .ok(); // Non-blocking, ignore errors
+            SdkSessionRedisManager::invalidate_session(state, &merchant_id, &payment_id)
+                .await
+                .ok(); // Non-blocking, ignore errors
 
             // Create new session with updated expiry
             let new_session_id = SdkSessionRedisManager::create_session(
                 state,
                 &merchant_id,
                 &payment_id,
-                payment_data.payment_intent.session_expiry.unwrap_or_else(|| {
-                    common_utils::date_time::now() + time::Duration::minutes(30)
-                }),
+                payment_data
+                    .payment_intent
+                    .session_expiry
+                    .unwrap_or_else(|| {
+                        common_utils::date_time::now() + time::Duration::minutes(30)
+                    }),
             )
             .await
             .change_context(errors::ApiErrorResponse::InternalServerError)

@@ -6,8 +6,8 @@
 
 use common_utils::{
     errors::CustomResult,
-    id_type::{MerchantId, PaymentId},
     generate_id,
+    id_type::{MerchantId, PaymentId},
 };
 use error_stack::ResultExt;
 use redis_interface::DelReply;
@@ -50,12 +50,13 @@ impl SdkSessionRedisManager {
         payment_id: &PaymentId,
         session_expiry: PrimitiveDateTime,
     ) -> CustomResult<String, errors::StorageError> {
-        let redis_conn = state
-            .store
-            .get_redis_conn()
-            .change_context(errors::StorageError::RedisError(
-                errors::RedisError::RedisConnectionError.into(),
-            ))?;
+        let redis_conn =
+            state
+                .store
+                .get_redis_conn()
+                .change_context(errors::StorageError::RedisError(
+                    errors::RedisError::RedisConnectionError.into(),
+                ))?;
 
         // Generate a unique session ID (32 characters)
         let session_id = generate_id(32, "");
@@ -106,12 +107,13 @@ impl SdkSessionRedisManager {
         merchant_id: &MerchantId,
         payment_id: &PaymentId,
     ) -> CustomResult<bool, errors::StorageError> {
-        let redis_conn = state
-            .store
-            .get_redis_conn()
-            .change_context(errors::StorageError::RedisError(
-                errors::RedisError::RedisConnectionError.into(),
-            ))?;
+        let redis_conn =
+            state
+                .store
+                .get_redis_conn()
+                .change_context(errors::StorageError::RedisError(
+                    errors::RedisError::RedisConnectionError.into(),
+                ))?;
 
         let key = Self::get_session_key(merchant_id, payment_id);
 
@@ -156,21 +158,19 @@ impl SdkSessionRedisManager {
         payment_id: &PaymentId,
         session_id: &str,
     ) -> CustomResult<bool, errors::StorageError> {
-        let redis_conn = state
-            .store
-            .get_redis_conn()
-            .change_context(errors::StorageError::RedisError(
-                errors::RedisError::RedisConnectionError.into(),
-            ))?;
+        let redis_conn =
+            state
+                .store
+                .get_redis_conn()
+                .change_context(errors::StorageError::RedisError(
+                    errors::RedisError::RedisConnectionError.into(),
+                ))?;
 
         let key = Self::get_session_key(merchant_id, payment_id);
 
-        let stored_session_id: String = redis_conn
-            .get_key(&key.into())
-            .await
-            .change_context(errors::StorageError::ValueNotFound(
-                "Session not found or expired".to_string(),
-            ))?;
+        let stored_session_id: String = redis_conn.get_key(&key.into()).await.change_context(
+            errors::StorageError::ValueNotFound("Session not found or expired".to_string()),
+        )?;
 
         let is_valid = stored_session_id == session_id;
 
@@ -199,12 +199,13 @@ impl SdkSessionRedisManager {
         merchant_id: &MerchantId,
         payment_id: &PaymentId,
     ) -> CustomResult<Option<String>, errors::StorageError> {
-        let redis_conn = state
-            .store
-            .get_redis_conn()
-            .change_context(errors::StorageError::RedisError(
-                errors::RedisError::RedisConnectionError.into(),
-            ))?;
+        let redis_conn =
+            state
+                .store
+                .get_redis_conn()
+                .change_context(errors::StorageError::RedisError(
+                    errors::RedisError::RedisConnectionError.into(),
+                ))?;
 
         let key = Self::get_session_key(merchant_id, payment_id);
 
