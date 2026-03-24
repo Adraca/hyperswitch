@@ -2859,9 +2859,7 @@ Cypress.Commands.add(
       logRequestId(response.headers["x-request-id"]);
       storeRequestId(response.headers["x-request-id"], globalState);
       cy.wrap(response).then(() => {
-        expect(response.headers["content-type"]).to.include(
-          "application/json"
-        );
+        expect(response.headers["content-type"]).to.include("application/json");
         if (response.body.capture_method !== undefined) {
           expect(response.body.payment_id).to.equal(paymentId);
           for (const key in resData.body) {
@@ -2874,7 +2872,6 @@ Cypress.Commands.add(
     });
   }
 );
-
 
 Cypress.Commands.add(
   "voidCallTest",
@@ -2916,9 +2913,7 @@ Cypress.Commands.add(
       storeRequestId(response.headers["x-request-id"], globalState);
 
       cy.wrap(response).then(() => {
-        expect(response.headers["content-type"]).to.include(
-          "application/json"
-        );
+        expect(response.headers["content-type"]).to.include("application/json");
         if (response.status === 200) {
           for (const key in resData.body) {
             expect(resData.body[key]).to.equal(response.body[key]);
@@ -2930,7 +2925,6 @@ Cypress.Commands.add(
     });
   }
 );
-
 
 Cypress.Commands.add(
   "retrievePaymentCallTest",
@@ -5917,7 +5911,6 @@ Cypress.Commands.add(
   }
 );
 
-
 Cypress.Commands.add(
   "confirmPaymentWithHeaderCallTest",
   (confirmBody, data, confirm, globalState, connectedMerchantId) => {
@@ -6067,4 +6060,3 @@ Cypress.Commands.add(
     });
   }
 );
-
