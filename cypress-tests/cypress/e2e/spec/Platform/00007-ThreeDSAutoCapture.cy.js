@@ -51,7 +51,7 @@ describe("Platform - Card ThreeDS payment flow test", () => {
           "card_pm"
         ]["PaymentIntent"];
 
-        cy.createPaymentIntentWithHeaderCallTest(
+        cy.createPaymentIntentTest(
           fixtures.createPaymentBody,
           data,
           "three_ds",
